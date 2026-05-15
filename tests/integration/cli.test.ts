@@ -6,10 +6,33 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, mkdir, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { $ } from 'bun';
+
+async function runProcess(
+  args: string[],
+  env?: Record<string, string>,
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  const proc = Bun.spawn(args, {
+    env: { ...process.env, ...env },
+    stdin: 'pipe',
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+
+  if (proc.stdin) {
+    proc.stdin.end();
+  }
+
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+
+  return { stdout, stderr, exitCode };
+}
 
 describe('CLI Integration Tests', () => {
   let tempDir: string;
@@ -18,7 +41,9 @@ describe('CLI Integration Tests', () => {
 
   beforeAll(async () => {
     // Create temp directory for test files
-    tempDir = await mkdtemp(join(tmpdir(), 'mcp-cli-integration-'));
+    tempDir = await realpath(
+      await mkdtemp(join(tmpdir(), 'mcp-cli-integration-')),
+    );
 
     // Create a test file to read
     testFilePath = join(tempDir, 'test.txt');
@@ -58,43 +83,30 @@ describe('CLI Integration Tests', () => {
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
 
-    try {
-      // Disable daemon for tests for deterministic behavior
-      const result =
-        await $`MCP_NO_DAEMON=1 bun run ${cliPath} -c ${configPath} ${args}`.nothrow();
-      return {
-        stdout: result.stdout.toString(),
-        stderr: result.stderr.toString(),
-        exitCode: result.exitCode,
-      };
-    } catch (error: any) {
-      return {
-        stdout: error.stdout?.toString() || '',
-        stderr: error.stderr?.toString() || '',
-        exitCode: error.exitCode || 1,
-      };
-    }
+    return runProcess(['bun', 'run', cliPath, '-c', configPath, ...args], {
+      MCP_NO_DAEMON: '1',
+    });
   }
 
   describe('--help', () => {
     test('shows help message', async () => {
       const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
-      const result = await $`bun run ${cliPath} --help`.nothrow();
+      const result = await runProcess(['bun', 'run', cliPath, '--help']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.toString()).toContain('mcp-cli');
-      expect(result.stdout.toString()).toContain('Usage:');
-      expect(result.stdout.toString()).toContain('Options:');
+      expect(result.stdout).toContain('mcp-cli');
+      expect(result.stdout).toContain('Usage:');
+      expect(result.stdout).toContain('Options:');
     });
   });
 
   describe('--version', () => {
     test('shows version', async () => {
       const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
-      const result = await $`bun run ${cliPath} --version`.nothrow();
+      const result = await runProcess(['bun', 'run', cliPath, '--version']);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout.toString()).toMatch(/mcp-cli v\d+\.\d+\.\d+/);
+      expect(result.stdout).toMatch(/mcp-cli v\d+\.\d+\.\d+/);
     });
   });
 
@@ -268,19 +280,29 @@ describe('CLI Integration Tests', () => {
   describe('error handling', () => {
     test('handles missing config gracefully', async () => {
       const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
-      const result =
-        await $`bun run ${cliPath} -c /nonexistent/config.json`.nothrow();
+      const result = await runProcess([
+        'bun',
+        'run',
+        cliPath,
+        '-c',
+        '/nonexistent/config.json',
+      ]);
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr.toString()).toContain('not found');
+      expect(result.stderr).toContain('not found');
     });
 
     test('handles unknown options', async () => {
       const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
-      const result = await $`bun run ${cliPath} --unknown-option`.nothrow();
+      const result = await runProcess([
+        'bun',
+        'run',
+        cliPath,
+        '--unknown-option',
+      ]);
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr.toString()).toContain('Unknown option');
+      expect(result.stderr).toContain('Unknown option');
     });
   });
 });
@@ -323,22 +345,9 @@ describe('HTTP Transport Integration Tests', () => {
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     const cliPath = join(import.meta.dir, '..', '..', 'src', 'index.ts');
 
-    try {
-      // Disable daemon for tests
-      const result =
-        await $`MCP_NO_DAEMON=1 bun run ${cliPath} -c ${configPath} ${args}`.nothrow();
-      return {
-        stdout: result.stdout.toString(),
-        stderr: result.stderr.toString(),
-        exitCode: result.exitCode,
-      };
-    } catch (error: any) {
-      return {
-        stdout: error.stdout?.toString() || '',
-        stderr: error.stderr?.toString() || '',
-        exitCode: error.exitCode || 1,
-      };
-    }
+    return runProcess(['bun', 'run', cliPath, '-c', configPath, ...args], {
+      MCP_NO_DAEMON: '1',
+    });
   }
 
   describe('list command with HTTP server', () => {

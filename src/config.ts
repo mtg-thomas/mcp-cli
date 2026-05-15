@@ -3,7 +3,7 @@
  */
 
 import { existsSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
   ErrorCode,
@@ -270,28 +270,48 @@ export function getDaemonTimeoutMs(): number {
 }
 
 /**
+ * Check whether daemon IPC should use TCP instead of Unix sockets.
+ * Bun does not expose Unix domain sockets on native Windows.
+ */
+export function usesTcpDaemonIpc(): boolean {
+  return process.platform === 'win32';
+}
+
+/**
+ * Host used for Windows daemon IPC.
+ */
+export function getDaemonHost(): string {
+  return '127.0.0.1';
+}
+
+/**
+ * Normalize server names before using them in daemon state file names.
+ */
+function sanitizeDaemonName(serverName: string): string {
+  return serverName.replace(/[^a-zA-Z0-9._-]/g, '_') || 'default';
+}
+
+/**
  * Get the socket directory for daemon connections
  * Uses platform-appropriate temp directory
  */
 export function getSocketDir(): string {
   const uid = process.getuid?.() ?? 'unknown';
-  // macOS uses /var/folders which is auto-cleaned, Linux uses /tmp
-  const base = process.platform === 'darwin' ? '/tmp' : '/tmp';
-  return join(base, `mcp-cli-${uid}`);
+  return join(tmpdir(), `mcp-cli-${uid}`);
 }
 
 /**
  * Get socket path for a specific server
  */
 export function getSocketPath(serverName: string): string {
-  return join(getSocketDir(), `${serverName}.sock`);
+  return join(getSocketDir(), `${sanitizeDaemonName(serverName)}.sock`);
 }
 
 /**
  * Get PID file path for a specific server daemon
  */
 export function getPidPath(serverName: string): string {
-  return join(getSocketDir(), `${serverName}.pid`);
+  return join(getSocketDir(), `${sanitizeDaemonName(serverName)}.pid`);
 }
 
 /**
