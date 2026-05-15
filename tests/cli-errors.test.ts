@@ -7,7 +7,6 @@
 
 import { describe, test, expect } from 'bun:test';
 import { join } from 'node:path';
-import { $ } from 'bun';
 
 describe('CLI Error Handling Tests', () => {
   const cliPath = join(import.meta.dir, '..', 'src', 'index.ts');
@@ -15,21 +14,24 @@ describe('CLI Error Handling Tests', () => {
   async function runCli(
     args: string[]
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    try {
-      // Disable daemon for tests for deterministic behavior
-      const result = await $`MCP_NO_DAEMON=1 bun run ${cliPath} ${args}`.nothrow();
-      return {
-        stdout: result.stdout.toString(),
-        stderr: result.stderr.toString(),
-        exitCode: result.exitCode,
-      };
-    } catch (error: any) {
-      return {
-        stdout: error.stdout?.toString() || '',
-        stderr: error.stderr?.toString() || '',
-        exitCode: error.exitCode || 1,
-      };
+    const proc = Bun.spawn(['bun', 'run', cliPath, ...args], {
+      env: { ...process.env, MCP_NO_DAEMON: '1' },
+      stdin: 'pipe',
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    if (proc.stdin) {
+      proc.stdin.end();
     }
+
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    return { stdout, stderr, exitCode };
   }
 
   describe('Ambiguous command errors', () => {

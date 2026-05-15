@@ -5,13 +5,18 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import {
   loadConfig,
   getServerConfig,
   listServerNames,
   isHttpServer,
   isStdioServer,
+  getDaemonHost,
+  getPidPath,
+  getSocketDir,
+  getSocketPath,
+  usesTcpDaemonIpc,
 } from '../src/config';
 
 describe('config', () => {
@@ -238,6 +243,23 @@ describe('config', () => {
     test('isStdioServer identifies stdio config', () => {
       expect(isStdioServer({ command: 'echo' })).toBe(true);
       expect(isStdioServer({ url: 'https://example.com' })).toBe(false);
+    });
+  });
+
+  describe('daemon paths', () => {
+    test('uses platform temp directory for daemon state', () => {
+      expect(getSocketDir()).toContain('mcp-cli-');
+      expect(getSocketDir()).not.toBe('/tmp/mcp-cli-unknown');
+    });
+
+    test('sanitizes server names used in daemon state filenames', () => {
+      expect(basename(getSocketPath('server/name'))).toBe('server_name.sock');
+      expect(basename(getPidPath('server:name'))).toBe('server_name.pid');
+    });
+
+    test('uses TCP daemon IPC only on native Windows', () => {
+      expect(usesTcpDaemonIpc()).toBe(process.platform === 'win32');
+      expect(getDaemonHost()).toBe('127.0.0.1');
     });
   });
 });

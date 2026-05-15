@@ -446,15 +446,15 @@ By default, the CLI uses **lazy-spawn connection pooling** to avoid repeated MCP
                                │
                                ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│ Check: /tmp/mcp-cli-{uid}/server.sock exists?                      │
+│ Check: platform temp daemon state exists?                          │
 └────────────────────────────────────────────────────────────────────┘
          │                                    │
          │ NO                                 │ YES
          ▼                                    ▼
 ┌─────────────────────────┐      ┌───────────────────────────────────┐
-│ Fork background daemon  │      │ Connect to existing socket        │
+│ Fork background daemon  │      │ Connect to existing IPC endpoint  │
 │ ├─ Connect to MCP server│      │ ├─ Send request via IPC           │
-│ ├─ Create Unix socket   │      │ ├─ Receive response               │
+│ ├─ Create IPC endpoint  │      │ ├─ Receive response               │
 │ └─ Start 60s idle timer │      │ └─ Daemon resets idle timer       │
 └─────────────────────────┘      └───────────────────────────────────┘
          │                                    │
@@ -468,6 +468,7 @@ By default, the CLI uses **lazy-spawn connection pooling** to avoid repeated MCP
 **Key features:**
 - **Automatic**: No manual start/stop needed
 - **Per-server**: Each MCP server gets its own daemon
+- **Cross-platform IPC**: Unix sockets on macOS/Linux, localhost TCP on native Windows
 - **Stale detection**: Config changes trigger re-spawn
 - **Fast fallback**: 5s spawn timeout, then direct connection
 

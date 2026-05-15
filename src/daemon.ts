@@ -23,10 +23,12 @@ import {
   type ServerConfig,
   debug,
   getConfigHash,
+  getDaemonHost,
   getDaemonTimeoutMs,
   getPidPath,
   getSocketDir,
   getSocketPath,
+  usesTcpDaemonIpc,
 } from './config.js';
 
 // ============================================================================
@@ -51,6 +53,7 @@ interface PidFileContent {
   pid: number;
   configHash: string;
   startedAt: string;
+  port?: number;
 }
 
 // ============================================================================
@@ -60,7 +63,11 @@ interface PidFileContent {
 /**
  * Write PID file with config hash for stale detection
  */
-export function writePidFile(serverName: string, configHash: string): void {
+export function writePidFile(
+  serverName: string,
+  configHash: string,
+  port?: number,
+): void {
   const pidPath = getPidPath(serverName);
   const dir = dirname(pidPath);
 
@@ -72,6 +79,7 @@ export function writePidFile(serverName: string, configHash: string): void {
     pid: process.pid,
     configHash,
     startedAt: new Date().toISOString(),
+    port,
   };
 
   writeFileSync(pidPath, JSON.stringify(content), { mode: 0o600 });
@@ -113,6 +121,10 @@ export function removePidFile(serverName: string): void {
  * Remove socket file
  */
 export function removeSocketFile(serverName: string): void {
+  if (usesTcpDaemonIpc()) {
+    return;
+  }
+
   const socketPath = getSocketPath(serverName);
   try {
     if (existsSync(socketPath)) {
@@ -164,7 +176,7 @@ export async function runDaemon(
 
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
   let mcpClient: ConnectedClient | null = null;
-  let server: ReturnType<typeof Bun.listen> | null = null;
+  let server: { stop: () => void; port?: number } | null = null;
   const activeConnections = new Set<unknown>();
 
   // Cleanup function
@@ -244,9 +256,6 @@ export async function runDaemon(
 
   // Remove stale socket if exists
   removeSocketFile(serverName);
-
-  // Write PID file
-  writePidFile(serverName, configHash);
 
   // Connect to MCP server
   try {
@@ -346,31 +355,50 @@ export async function runDaemon(
     }
   };
 
-  // Start Unix socket server
+  // Start IPC server. Unix sockets are used where available; Windows uses an
+  // ephemeral localhost TCP port recorded in the PID file.
   try {
-    server = Bun.listen({
-      unix: socketPath,
-      socket: {
-        open(socket) {
-          activeConnections.add(socket);
-          debug(`[daemon:${serverName}] Client connected`);
-        },
-        async data(socket, data) {
-          const response = await handleRequest(data);
-          socket.write(`${JSON.stringify(response)}\n`);
-        },
-        close(socket) {
-          activeConnections.delete(socket);
-          debug(`[daemon:${serverName}] Client disconnected`);
-        },
-        error(socket, error) {
-          debug(`[daemon:${serverName}] Socket error: ${error.message}`);
-          activeConnections.delete(socket);
-        },
+    const socketHandlers = {
+      open(socket: unknown) {
+        activeConnections.add(socket);
+        debug(`[daemon:${serverName}] Client connected`);
       },
-    });
+      async data(socket: { write: (data: string) => void }, data: Buffer) {
+        const response = await handleRequest(data);
+        socket.write(`${JSON.stringify(response)}\n`);
+      },
+      close(socket: unknown) {
+        activeConnections.delete(socket);
+        debug(`[daemon:${serverName}] Client disconnected`);
+      },
+      error(socket: unknown, error: Error) {
+        debug(`[daemon:${serverName}] Socket error: ${error.message}`);
+        activeConnections.delete(socket);
+      },
+    };
 
-    debug(`[daemon:${serverName}] Listening on ${socketPath}`);
+    if (usesTcpDaemonIpc()) {
+      server = Bun.listen({
+        hostname: getDaemonHost(),
+        port: 0,
+        socket: socketHandlers,
+      });
+    } else {
+      server = Bun.listen({
+        unix: socketPath,
+        socket: socketHandlers,
+      });
+    }
+
+    const daemonPort = usesTcpDaemonIpc() ? server.port : undefined;
+
+    writePidFile(serverName, configHash, daemonPort);
+
+    debug(
+      usesTcpDaemonIpc()
+        ? `[daemon:${serverName}] Listening on ${getDaemonHost()}:${daemonPort}`
+        : `[daemon:${serverName}] Listening on ${socketPath}`,
+    );
 
     // Start idle timer
     resetIdleTimer();
@@ -379,7 +407,7 @@ export async function runDaemon(
     console.log('DAEMON_READY');
   } catch (error) {
     console.error(
-      `[daemon:${serverName}] Failed to start socket server:`,
+      `[daemon:${serverName}] Failed to start IPC server:`,
       (error as Error).message,
     );
     await cleanup();

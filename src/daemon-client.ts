@@ -10,8 +10,10 @@ import {
   type ServerConfig,
   debug,
   getConfigHash,
+  getDaemonHost,
   getSocketDir,
   getSocketPath,
+  usesTcpDaemonIpc,
 } from './config.js';
 import {
   type DaemonRequest,
@@ -52,37 +54,47 @@ function generateRequestId(): string {
  * Send a request to the daemon and wait for response
  */
 async function sendRequest(
-  socketPath: string,
+  endpoint: { unix: string } | { hostname: string; port: number },
   request: DaemonRequest,
 ): Promise<DaemonResponse> {
   return new Promise((resolve, reject) => {
-    const socket = Bun.connect({
-      unix: socketPath,
-      socket: {
-        open(socket) {
-          socket.write(JSON.stringify(request));
-        },
-        data(socket, data) {
-          try {
-            const response = JSON.parse(data.toString().trim());
-            socket.end();
-            resolve(response);
-          } catch (err) {
-            socket.end();
-            reject(new Error('Invalid response from daemon'));
-          }
-        },
-        error(socket, error) {
-          reject(error);
-        },
-        close() {
-          // Connection closed
-        },
-        connectError(socket, error) {
-          reject(error);
-        },
+    const socketHandlers = {
+      open(socket: { write: (data: string) => void }) {
+        socket.write(JSON.stringify(request));
       },
-    });
+      data(socket: { end: () => void }, data: Buffer) {
+        try {
+          const response = JSON.parse(data.toString().trim());
+          socket.end();
+          resolve(response);
+        } catch {
+          socket.end();
+          reject(new Error('Invalid response from daemon'));
+        }
+      },
+      error(_socket: unknown, error: Error) {
+        reject(error);
+      },
+      close() {
+        // Connection closed
+      },
+      connectError(_socket: unknown, error: Error) {
+        reject(error);
+      },
+    };
+
+    if ('unix' in endpoint) {
+      Bun.connect({
+        unix: endpoint.unix,
+        socket: socketHandlers,
+      });
+    } else {
+      Bun.connect({
+        hostname: endpoint.hostname,
+        port: endpoint.port,
+        socket: socketHandlers,
+      });
+    }
 
     // Timeout after 5 seconds (fast fallback to direct connection)
     setTimeout(() => {
@@ -125,14 +137,36 @@ function isDaemonValid(serverName: string, config: ServerConfig): boolean {
   }
 
   // Check if socket exists
-  if (!existsSync(socketPath)) {
+  if (!usesTcpDaemonIpc() && !existsSync(socketPath)) {
     debug(`[daemon-client] Socket missing for ${serverName}, cleaning up`);
     killProcess(pidInfo.pid);
     removePidFile(serverName);
     return false;
   }
 
+  if (usesTcpDaemonIpc() && !pidInfo.port) {
+    debug(`[daemon-client] TCP port missing for ${serverName}, cleaning up`);
+    killProcess(pidInfo.pid);
+    removePidFile(serverName);
+    return false;
+  }
+
   return true;
+}
+
+function getDaemonEndpoint(
+  serverName: string,
+): { unix: string } | { hostname: string; port: number } | null {
+  if (!usesTcpDaemonIpc()) {
+    return { unix: getSocketPath(serverName) };
+  }
+
+  const pidInfo = readPidFile(serverName);
+  if (!pidInfo?.port) {
+    return null;
+  }
+
+  return { hostname: getDaemonHost(), port: pidInfo.port };
 }
 
 /**
@@ -224,8 +258,6 @@ export async function getDaemonConnection(
   serverName: string,
   config: ServerConfig,
 ): Promise<DaemonConnection | null> {
-  const socketPath = getSocketPath(serverName);
-
   // Check if valid daemon exists
   if (!isDaemonValid(serverName, config)) {
     // Spawn new daemon
@@ -239,15 +271,17 @@ export async function getDaemonConnection(
     await new Promise((r) => setTimeout(r, 100));
   }
 
-  // Verify socket exists
-  if (!existsSync(socketPath)) {
+  const endpoint = getDaemonEndpoint(serverName);
+
+  // Verify IPC endpoint exists
+  if (!endpoint || ('unix' in endpoint && !existsSync(endpoint.unix))) {
     debug(`[daemon-client] Socket not found after spawn for ${serverName}`);
     return null;
   }
 
   // Test connection with ping
   try {
-    const pingResponse = await sendRequest(socketPath, {
+    const pingResponse = await sendRequest(endpoint, {
       id: generateRequestId(),
       type: 'ping',
     });
@@ -270,7 +304,7 @@ export async function getDaemonConnection(
     serverName,
 
     async listTools(): Promise<unknown> {
-      const response = await sendRequest(socketPath, {
+      const response = await sendRequest(endpoint, {
         id: generateRequestId(),
         type: 'listTools',
       });
@@ -286,7 +320,7 @@ export async function getDaemonConnection(
       toolName: string,
       args: Record<string, unknown>,
     ): Promise<unknown> {
-      const response = await sendRequest(socketPath, {
+      const response = await sendRequest(endpoint, {
         id: generateRequestId(),
         type: 'callTool',
         toolName,
@@ -301,7 +335,7 @@ export async function getDaemonConnection(
     },
 
     async getInstructions(): Promise<string | undefined> {
-      const response = await sendRequest(socketPath, {
+      const response = await sendRequest(endpoint, {
         id: generateRequestId(),
         type: 'getInstructions',
       });
