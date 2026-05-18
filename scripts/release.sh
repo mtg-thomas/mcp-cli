@@ -20,6 +20,27 @@ if [ -z "$1" ]; then
 fi
 
 VERSION=$1
+BUN_BIN=${BUN_BIN:-bun}
+
+if ! command -v "$BUN_BIN" &> /dev/null; then
+    if command -v bun.exe &> /dev/null; then
+        BUN_BIN=bun.exe
+    elif [ -n "${USERPROFILE:-}" ]; then
+        USER_BUN="$USERPROFILE/.bun/bin/bun.exe"
+        if command -v cygpath &> /dev/null; then
+            USER_BUN=$(cygpath -u "$USER_BUN")
+        fi
+        if [ -x "$USER_BUN" ]; then
+            BUN_BIN=$USER_BUN
+        fi
+    fi
+fi
+
+if ! command -v "$BUN_BIN" &> /dev/null && [ ! -x "$BUN_BIN" ]; then
+    echo -e "${RED}Error: Bun executable not found${NC}"
+    echo "Install Bun or set BUN_BIN to the Bun executable path."
+    exit 1
+fi
 
 # Validate version format (semver)
 if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -75,11 +96,11 @@ EOF
 
 # Run the same local gates expected before releasing
 echo "Running verification..."
-bun run typecheck
-bun run lint
-bun test --timeout 60000 tests/config.test.ts tests/output.test.ts tests/client.test.ts tests/errors.test.ts tests/filter.test.ts tests/grep.test.ts tests/cli-errors.test.ts
-bun test --timeout 60000 tests/integration/
-bun run build:all
+"$BUN_BIN" run typecheck
+"$BUN_BIN" run lint
+"$BUN_BIN" test --timeout 60000 tests/config.test.ts tests/output.test.ts tests/client.test.ts tests/errors.test.ts tests/filter.test.ts tests/grep.test.ts tests/cli-errors.test.ts
+"$BUN_BIN" test --timeout 60000 tests/integration/
+"$BUN_BIN" run build:all
 
 echo -e "${GREEN}Verification passed!${NC}"
 
