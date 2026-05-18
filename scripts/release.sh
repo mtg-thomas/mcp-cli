@@ -73,13 +73,15 @@ cat > src/version.ts << EOF
 export const VERSION = '$VERSION';
 EOF
 
-# Run tests before releasing
-echo "Running tests..."
+# Run the same local gates expected before releasing
+echo "Running verification..."
 bun run typecheck
 bun run lint
-bun test tests/config.test.ts tests/output.test.ts tests/client.test.ts tests/errors.test.ts
+bun test --timeout 60000 tests/config.test.ts tests/output.test.ts tests/client.test.ts tests/errors.test.ts tests/filter.test.ts tests/grep.test.ts tests/cli-errors.test.ts
+bun test --timeout 60000 tests/integration/
+bun run build:all
 
-echo -e "${GREEN}Tests passed!${NC}"
+echo -e "${GREEN}Verification passed!${NC}"
 
 # Commit version bump
 echo "Committing version bump..."
@@ -100,8 +102,8 @@ echo -e "${GREEN}✓ Release v$VERSION created successfully!${NC}"
 echo ""
 echo "GitHub Actions will now:"
 echo "  1. Run the full test suite"
-echo "  2. Build binaries for Linux and macOS"
+echo "  2. Build binaries for Linux, macOS, and Windows"
 echo "  3. Create the GitHub release"
 echo ""
 echo "Monitor the release at:"
-echo "  https://github.com/philschmid/mcp-cli/actions"
+echo "  https://github.com/MTG-Thomas/mcp-cli/actions"
