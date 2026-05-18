@@ -5,16 +5,35 @@
  * by invoking the actual CLI with wrong/confusing arguments.
  */
 
-import { describe, test, expect } from 'bun:test';
+import { describe, test, expect, beforeAll } from 'bun:test';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 describe('CLI Error Handling Tests', () => {
   const cliPath = join(import.meta.dir, '..', 'src', 'index.ts');
+  const configPath = join(
+    tmpdir(),
+    `mcp-cli-errors-${Date.now()}-${Math.random().toString(16).slice(2)}.json`,
+  );
+
+  beforeAll(async () => {
+    await Bun.write(
+      configPath,
+      JSON.stringify({
+        mcpServers: {
+          filesystem: {
+            command: '__mcp_cli_missing_command__',
+            args: [],
+          },
+        },
+      }),
+    );
+  });
 
   async function runCli(
     args: string[]
   ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    const proc = Bun.spawn(['bun', 'run', cliPath, ...args], {
+    const proc = Bun.spawn(['bun', 'run', cliPath, '-c', configPath, ...args], {
       env: { ...process.env, MCP_NO_DAEMON: '1' },
       stdin: 'pipe',
       stdout: 'pipe',
@@ -381,4 +400,3 @@ describe('CLI Error Handling Tests', () => {
     });
   });
 });
-

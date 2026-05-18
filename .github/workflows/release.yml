@@ -5,10 +5,24 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: 1.3.14
+
 jobs:
   test:
     name: Test before release
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       
@@ -18,7 +32,7 @@ jobs:
       
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
       
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -30,7 +44,7 @@ jobs:
         run: bun run lint
       
       - name: Run unit tests
-        run: bun test tests/config.test.ts tests/output.test.ts tests/client.test.ts tests/errors.test.ts
+        run: bun test --timeout 60000 tests/config.test.ts tests/output.test.ts tests/client.test.ts tests/errors.test.ts tests/filter.test.ts tests/grep.test.ts tests/cli-errors.test.ts
       
       - name: Run integration tests
         run: bun test --timeout 60000 tests/integration/
@@ -44,19 +58,25 @@ jobs:
       
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
       
       - name: Install dependencies
         run: bun install --frozen-lockfile
       
       - name: Build Linux x64
         run: bun build --compile --minify --target=bun-linux-x64 src/index.ts --outfile dist/mcp-cli-linux-x64
+
+      - name: Build Linux ARM64
+        run: bun build --compile --minify --target=bun-linux-arm64 src/index.ts --outfile dist/mcp-cli-linux-arm64
       
       - name: Build macOS x64
         run: bun build --compile --minify --target=bun-darwin-x64 src/index.ts --outfile dist/mcp-cli-darwin-x64
       
       - name: Build macOS ARM64
         run: bun build --compile --minify --target=bun-darwin-arm64 src/index.ts --outfile dist/mcp-cli-darwin-arm64
+
+      - name: Build Windows x64
+        run: bun build --compile --minify --target=bun-windows-x64 src/index.ts --outfile dist/mcp-cli-windows-x64.exe
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -82,11 +102,11 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum * > checksums.txt
+          sha256sum ./* > checksums.txt
       
       - name: Get version from tag
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: printf 'VERSION=%s\n' "${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
       
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -95,6 +115,8 @@ jobs:
           generate_release_notes: true
           files: |
             dist/mcp-cli-linux-x64
+            dist/mcp-cli-linux-arm64
             dist/mcp-cli-darwin-x64
             dist/mcp-cli-darwin-arm64
+            dist/mcp-cli-windows-x64.exe
             dist/checksums.txt
