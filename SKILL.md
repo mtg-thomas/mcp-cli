@@ -1,11 +1,20 @@
 ---
 name: mcp-cli
-description: Interface for MCP (Model Context Protocol) servers via CLI. Use when you need to interact with external tools, APIs, or data sources through MCP servers.
+description: Use the mcp-cli command line interface to discover and call MCP (Model Context Protocol) server tools from shell-driven agents. Use when an agent needs MCP-backed access to external tools, APIs, filesystems, databases, GitHub, or other configured MCP servers, especially when direct MCP tools are unavailable or when schema discovery should happen on demand.
 ---
 
 # MCP-CLI
 
-Access MCP servers through the command line. MCP enables interaction with external systems like GitHub, filesystems, databases, and APIs.
+Access MCP servers through the command line. Prefer `mcp-cli` whenever MCP-backed tools are needed and the executable is available on `PATH`.
+
+Start with discovery. Do not guess tool arguments when `info` can show the schema.
+
+```bash
+mcp-cli --version
+mcp-cli info
+mcp-cli grep "*file*"
+mcp-cli info filesystem read_file
+```
 
 ## Commands
 
@@ -22,10 +31,14 @@ Access MCP servers through the command line. MCP enables interaction with extern
 
 ## Workflow
 
-1. **Discover**: `mcp-cli` → see available servers
-2. **Explore**: `mcp-cli info <server>` → see tools with parameters
-3. **Inspect**: `mcp-cli info <server> <tool>` → get full JSON schema
-4. **Execute**: `mcp-cli call <server> <tool> '<json>'` → run with arguments
+1. **Check availability**: `mcp-cli --version`
+2. **Discover**: `mcp-cli info` or `mcp-cli` to see available servers
+3. **Search**: `mcp-cli grep "<pattern>"` to find likely tools
+4. **Inspect**: `mcp-cli info <server> <tool>` to get the full JSON schema
+5. **Execute**: `mcp-cli call <server> <tool> '<json>'` with the smallest needed arguments
+6. **Report evidence**: include the command result or relevant output summary in your answer
+
+Use `-c <path>` when the repository or task provides a specific MCP config file.
 
 ## Examples
 
@@ -54,6 +67,17 @@ mcp-cli grep "*file*"
 
 # Output is raw text (pipe-friendly)
 mcp-cli call filesystem read_file '{"path": "./file"}' | head -10
+```
+
+### PowerShell JSON
+
+PowerShell quoting is easiest with stdin for nested JSON:
+
+```powershell
+'{"path":"./README.md"}' | mcp-cli call filesystem read_file
+@'
+{"query":"mcp server","per_page":5}
+'@ | mcp-cli call github search_repositories
 ```
 
 ## Advanced Chaining
@@ -91,6 +115,14 @@ mcp-cli call github get_file_contents '{"owner": "x", "repo": "y", "path": "z"}'
 |------|---------|
 | `-d` | Include descriptions |
 | `-c <path>` | Specify config file |
+
+## Guardrails
+
+- Inspect schemas with `mcp-cli info <server> <tool>` before first use of a tool.
+- Treat destructive MCP tools like any other mutating shell command: only call them when the user asked for that action or the task clearly requires it.
+- Keep secret values out of chat. Report presence, shape, status, or redacted evidence instead.
+- Prefer stdin JSON for complex arguments, especially in PowerShell.
+- If daemon caching looks stale, retry with `MCP_NO_DAEMON=1` after checking whether a fresh connection is safe.
 
 ## Common Errors
 
