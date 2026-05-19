@@ -80,7 +80,7 @@ jobs:
         run: bun build --compile --minify --target=bun-windows-x64 src/index.ts --outfile dist/mcp-cli-windows-x64.exe
       
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: binaries
           path: dist/
