@@ -3,18 +3,18 @@
  */
 
 import {
-  type McpConnection,
-  type ToolInfo,
   debug,
   getConcurrencyLimit,
   getConnection,
+  type McpConnection,
   safeClose,
+  type ToolInfo,
 } from '../client.js';
 import {
-  type McpServersConfig,
   getServerConfig,
   listServerNames,
   loadConfig,
+  type McpServersConfig,
 } from '../config.js';
 import { ErrorCode } from '../errors.js';
 import { formatServerList } from '../output.js';

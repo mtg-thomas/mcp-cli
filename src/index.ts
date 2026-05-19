@@ -16,16 +16,8 @@ import { grepCommand } from './commands/grep.js';
 import { infoCommand } from './commands/info.js';
 import { listCommand } from './commands/list.js';
 import {
-  DEFAULT_CONCURRENCY,
-  DEFAULT_MAX_RETRIES,
-  DEFAULT_RETRY_DELAY_MS,
-  DEFAULT_TIMEOUT_SECONDS,
-  listServerNames,
-  loadConfig,
-} from './config.js';
-import {
-  ErrorCode,
   ambiguousCommandError,
+  ErrorCode,
   formatCliError,
   missingArgumentError,
   tooManyArgumentsError,
@@ -52,7 +44,7 @@ const SUBCOMMANDS = ['info', 'grep', 'call'] as const;
 /**
  * Check if a string looks like a subcommand (not a server name)
  */
-function isKnownSubcommand(arg: string): boolean {
+function _isKnownSubcommand(arg: string): boolean {
   return SUBCOMMANDS.includes(arg as (typeof SUBCOMMANDS)[number]);
 }
 

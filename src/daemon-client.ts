@@ -7,12 +7,12 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  type ServerConfig,
   debug,
   getConfigHash,
   getDaemonHost,
   getSocketDir,
   getSocketPath,
+  type ServerConfig,
   usesTcpDaemonIpc,
 } from './config.js';
 import {
