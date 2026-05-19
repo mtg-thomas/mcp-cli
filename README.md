@@ -428,9 +428,21 @@ EOF
 
 ### Option 2: Agents Skill
 
-For Code Agents that support Agents Skills, like Gemini CLI, OpenCode or Claude Code. you can use the mcp-cli skill to interface with MCP servers. The Skill is available at [SKILL.md](./SKILL.md)
+For code agents that support agent skills, such as Codex, Gemini CLI, OpenCode, or Claude Code, install the bundled `mcp-cli` skill so agents are encouraged to discover and call MCP tools through this CLI. The skill is available at [SKILL.md](./SKILL.md).
 
-Create `mcp-cli/SKILL.md` in your skills directory. 
+PowerShell:
+
+```powershell
+.\scripts\install-skill.ps1
+```
+
+Bash:
+
+```bash
+./scripts/install-skill.sh
+```
+
+This copies `SKILL.md` to `${CODEX_HOME:-~/.codex}/skills/mcp-cli/SKILL.md`. You can also create `mcp-cli/SKILL.md` manually in another agent's skills directory.
 
 ## Architecture
 
