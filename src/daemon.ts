@@ -20,7 +20,6 @@ import {
   listTools,
 } from './client.js';
 import {
-  type ServerConfig,
   debug,
   getConfigHash,
   getDaemonHost,
@@ -28,6 +27,7 @@ import {
   getPidPath,
   getSocketDir,
   getSocketPath,
+  type ServerConfig,
   usesTcpDaemonIpc,
 } from './config.js';
 

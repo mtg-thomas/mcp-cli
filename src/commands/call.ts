@@ -8,17 +8,16 @@
  */
 
 import {
-  type McpConnection,
-  debug,
   getConnection,
   getTimeoutMs,
+  type McpConnection,
   safeClose,
 } from '../client.js';
 import {
-  type McpServersConfig,
-  type ServerConfig,
   getServerConfig,
   loadConfig,
+  type McpServersConfig,
+  type ServerConfig,
 } from '../config.js';
 import {
   ErrorCode,
@@ -29,7 +28,7 @@ import {
   toolExecutionError,
   toolNotFoundError,
 } from '../errors.js';
-import { formatJson, formatToolResult } from '../output.js';
+import { formatToolResult } from '../output.js';
 
 export interface CallOptions {
   target: string; // "server/tool"

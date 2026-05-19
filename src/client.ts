@@ -7,28 +7,27 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 import {
-  type HttpServerConfig,
-  type ServerConfig,
-  type StdioServerConfig,
   debug,
   filterTools,
   getConcurrencyLimit,
   getMaxRetries,
   getRetryDelayMs,
   getTimeoutMs,
+  type HttpServerConfig,
   isDaemonEnabled,
   isHttpServer,
   isToolAllowed,
+  type ServerConfig,
+  type StdioServerConfig,
 } from './config.js';
 import {
-  type DaemonConnection,
   cleanupOrphanedDaemons,
   getDaemonConnection,
 } from './daemon-client.js';
 import { VERSION } from './version.js';
 
 // Re-export config utilities for convenience
-export { debug, getTimeoutMs, getConcurrencyLimit };
+export { debug, getConcurrencyLimit, getTimeoutMs };
 
 export interface ConnectedClient {
   client: Client;

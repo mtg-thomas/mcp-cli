@@ -2,12 +2,12 @@
  * Info command - Show server or tool details
  */
 
-import { type McpConnection, getConnection, safeClose } from '../client.js';
+import { getConnection, type McpConnection, safeClose } from '../client.js';
 import {
-  type McpServersConfig,
-  type ServerConfig,
   getServerConfig,
   loadConfig,
+  type McpServersConfig,
+  type ServerConfig,
 } from '../config.js';
 import {
   ErrorCode,

@@ -6,11 +6,11 @@ import { existsSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
-  ErrorCode,
   configInvalidJsonError,
   configMissingFieldError,
   configNotFoundError,
   configSearchError,
+  ErrorCode,
   formatCliError,
   serverNotFoundError,
 } from './errors.js';
@@ -345,7 +345,7 @@ function isStrictEnvMode(): boolean {
 function substituteEnvVars(value: string): string {
   const missingVars: string[] = [];
 
-  const result = value.replace(/\$\{([^}]+)\}/g, (match, varName) => {
+  const result = value.replace(/\$\{([^}]+)\}/g, (_match, varName) => {
     const envValue = process.env[varName];
     if (envValue === undefined) {
       missingVars.push(varName);

@@ -3,18 +3,18 @@
  */
 
 import {
-  type McpConnection,
-  type ToolInfo,
   debug,
   getConcurrencyLimit,
   getConnection,
+  type McpConnection,
   safeClose,
+  type ToolInfo,
 } from '../client.js';
 import {
-  type McpServersConfig,
   getServerConfig,
   listServerNames,
   loadConfig,
+  type McpServersConfig,
 } from '../config.js';
 import { ErrorCode } from '../errors.js';
 import { formatSearchResults } from '../output.js';
@@ -69,7 +69,7 @@ export function globToRegex(pattern: string): RegExp {
       // ? - match single char (not slash)
       escaped += '[^/]';
       i += 1;
-    } else if ('[.+^${}()|\\]'.includes(char)) {
+    } else if (('[.+^$' + '{}()|\\]').includes(char)) {
       // Escape special regex chars
       escaped += `\\${char}`;
       i += 1;
