@@ -21,14 +21,14 @@ A lightweight, Bun-based CLI for interacting with [MCP (Model Context Protocol)]
 ### 1. Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/philschmid/mcp-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/MTG-Thomas/mcp-cli/main/install.sh | bash
 ```
 
 or 
 
 ```bash
 # requires bun install
-bun install -g https://github.com/philschmid/mcp-cli
+bun install -g https://github.com/MTG-Thomas/mcp-cli
 ```
 
 ### 2. Create a config file
@@ -428,9 +428,21 @@ EOF
 
 ### Option 2: Agents Skill
 
-For Code Agents that support Agents Skills, like Gemini CLI, OpenCode or Claude Code. you can use the mcp-cli skill to interface with MCP servers. The Skill is available at [SKILL.md](./SKILL.md)
+For code agents that support agent skills, such as Codex, Gemini CLI, OpenCode, or Claude Code, install the bundled `mcp-cli` skill so agents are encouraged to discover and call MCP tools through this CLI. The skill is available at [SKILL.md](./SKILL.md).
 
-Create `mcp-cli/SKILL.md` in your skills directory. 
+PowerShell:
+
+```powershell
+.\scripts\install-skill.ps1
+```
+
+Bash:
+
+```bash
+./scripts/install-skill.sh
+```
+
+This copies `SKILL.md` to `${CODEX_HOME:-~/.codex}/skills/mcp-cli/SKILL.md`. You can also create `mcp-cli/SKILL.md` manually in another agent's skills directory.
 
 ## Architecture
 
@@ -545,7 +557,7 @@ The CLI includes **automatic retry with exponential backoff** for transient fail
 ### Setup
 
 ```bash
-bun install https://github.com/philschmid/mcp-cli
+bun install https://github.com/MTG-Thomas/mcp-cli
 ```
 
 ### Commands
@@ -607,6 +619,11 @@ Releases are automated via GitHub Actions. Use the release script:
 ```bash
 ./scripts/release.sh 0.2.0
 ```
+
+The release script updates `package.json` and `src/version.ts`, runs typecheck,
+lint, unit tests, integration tests, and `bun run build:all`, then pushes the
+`vX.Y.Z` tag. The tag workflow repeats the checks and publishes Linux, macOS,
+and Windows binaries with SHA-256 checksums.
 
 ### Error Messages
 
